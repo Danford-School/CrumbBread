@@ -25,22 +25,11 @@
 from confluent_kafka import Producer, KafkaError
 import json
 import ccloud_lib
-import requests
-import datetime
+
 
 if __name__ == '__main__':
 
-    url = 'http://rbi.ddns.net/getBreadCrumbData'
-    # this gets the file from the URL
-    # This operation takes a while to download, so be patient if it seems to be hung up
-    data = requests.get(url)
-    today = datetime.date.today().strftime("%Y%m%d")
-    with open(today, 'w') as fw:
-        # get the correct path either here or precede today 
-        fw.write(data.text)
-
     # Read arguments and configurations and initialize
-
     args = ccloud_lib.parse_args()
     config_file = args.config_file
     topic = args.topic
@@ -53,7 +42,7 @@ if __name__ == '__main__':
         'security.protocol': conf['security.protocol'],
         'sasl.username': conf['sasl.username'],
         'sasl.password': conf['sasl.password'],
-        })
+    })
 
     # Create topic if needed
     ccloud_lib.create_topic(conf, topic)
@@ -73,30 +62,18 @@ if __name__ == '__main__':
         else:
             delivered_records += 1
             print("Produced record to topic {} partition [{}] @ offset {}"
-                    .format(msg.topic(), msg.partition(), msg.offset()))
+                  .format(msg.topic(), msg.partition(), msg.offset()))
 
-    theRecords = json.loads(data.text)
-    count = 0
-    for records in theRecords:
-        count += 1
-        record_key = "test"
-        record_value = json.dumps(records)
-        print(records)
+    for n in range(100):
+        record_key = "alice"
+        record_value = json.dumps({'count': n})
         print("Producing record: {}\t{}".format(record_key, record_value))
-        producer.produce('sensor-data1', key=record_key, value=record_value, on_delivery=acked)
-            # p.poll() serves delivery reports (on_delivery)
-            # from previous produce() calls.
+        producer.produce(topic, key=record_key, value=record_value, on_delivery=acked)
+        # p.poll() serves delivery reports (on_delivery)
+        # from previous produce() calls.
         producer.poll(0)
 
     #Might need to flush more often?
-    #catch the error and flush 
     producer.flush()
-
-    # Added this to catch the count of files sent. I should be able to get this data elsewhere,
-    # but I don't know where yet. 
-    file = open("count_counter.txt", "a")
-    file.write(str(today) + " " + str(count) + "\n")
-    file.close
-
 
     print("{} messages were produced to topic {}!".format(delivered_records, topic))
